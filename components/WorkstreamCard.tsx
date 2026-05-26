@@ -1,15 +1,58 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { daysOver, formatMonthDay, todayIso } from '@/lib/dates';
-import type { Task, Workstream } from '@/lib/types';
+import type { Customer, Task, Workstream } from '@/lib/types';
+import { AddTaskForm } from './AddTaskForm';
 import { STATUS_FG, StatusPill } from './StatusPill';
 
 interface Props {
   workstream: Workstream;
   tasks: Task[];
+  customer: Customer;
 }
 
-export function WorkstreamCard({ workstream, tasks }: Props) {
+const DRAG_MIME = 'application/x-workplan-task-id';
+
+export function WorkstreamCard({ workstream, tasks, customer }: Props) {
+  const qc = useQueryClient();
+  const [isDragOver, setIsDragOver] = useState(false);
+  const tasksKey = ['tasks', customer] as const;
+
+  const moveMutation = useMutation<
+    Task,
+    Error,
+    { taskId: string; destId: string },
+    { prev: Task[] | undefined }
+  >({
+    mutationFn: async ({ taskId, destId }) => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workstreamId: destId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Move failed: ${res.status}`);
+      }
+      return res.json();
+    },
+    onMutate: async ({ taskId, destId }) => {
+      await qc.cancelQueries({ queryKey: tasksKey });
+      const prev = qc.getQueryData<Task[]>(tasksKey);
+      qc.setQueryData<Task[]>(tasksKey, (curr) =>
+        (curr ?? []).map((t) =>
+          t.id === taskId ? { ...t, workstreamId: destId } : t,
+        ),
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(tasksKey, ctx.prev);
+    },
+  });
+
   const wsTasks = tasks.filter((t) => t.workstreamId === workstream.id);
   const blockers = wsTasks.filter((t) => t.status === 'Blocked');
   const regular = wsTasks.filter((t) => t.status !== 'Blocked');
@@ -37,7 +80,34 @@ export function WorkstreamCard({ workstream, tasks }: Props) {
 
   return (
     <article
-      className="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-sm overflow-hidden flex flex-col"
+      onDragOver={(e) => {
+        // Only react if the drag actually carries a task id.
+        if (e.dataTransfer.types.includes(DRAG_MIME)) {
+          e.preventDefault();
+          setIsDragOver(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        // The leave fires when crossing into children too; only clear
+        // when we've truly left the card.
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setIsDragOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const taskId = e.dataTransfer.getData(DRAG_MIME);
+        if (!taskId) return;
+        const moving = tasks.find((t) => t.id === taskId);
+        if (!moving) return;
+        if (moving.workstreamId === workstream.id) return; // dropped on its own card
+        moveMutation.mutate({ taskId, destId: workstream.id });
+      }}
+      className={`bg-[var(--surface)] border rounded-xl shadow-sm overflow-hidden flex flex-col transition-colors ${
+        isDragOver
+          ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/30'
+          : 'border-[var(--border)]'
+      }`}
       style={{ borderTopWidth: 4, borderTopColor: STATUS_FG[workstream.status] }}
     >
       <div className="px-5 pt-4 pb-2 flex items-start justify-between gap-3">
@@ -113,15 +183,7 @@ export function WorkstreamCard({ workstream, tasks }: Props) {
       </Section>
 
       <div className="px-5 pb-4 pt-3">
-        <button
-          type="button"
-          className="w-full border border-dashed border-[var(--border)] rounded-md py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--text-subtle)] transition-colors"
-          onClick={() => {
-            /* wired in Task 16 */
-          }}
-        >
-          + Add task
-        </button>
+        <AddTaskForm customer={customer} workstreamId={workstream.id} />
       </div>
     </article>
   );
@@ -159,7 +221,14 @@ function TaskRow({ task }: { task: Task }) {
     !isDone && task.due ? daysOver(task.due, todayIso()) !== null : false;
 
   return (
-    <li className="flex items-center gap-2 text-xs group">
+    <li
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(DRAG_MIME, task.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      className="flex items-center gap-2 text-xs group cursor-grab active:cursor-grabbing"
+    >
       <span
         className={`inline-block w-2 h-2 rounded-full shrink-0 ${
           isDone
@@ -172,6 +241,10 @@ function TaskRow({ task }: { task: Task }) {
         href={task.url}
         target="_blank"
         rel="noopener noreferrer"
+        // Don't start a drag when the user clicks the link; the row's
+        // onDragStart still fires for the rest of the row.
+        onDragStart={(e) => e.stopPropagation()}
+        draggable={false}
         className={`flex-1 truncate hover:text-[var(--accent)] ${
           isDone
             ? 'line-through text-[var(--text-subtle)]'

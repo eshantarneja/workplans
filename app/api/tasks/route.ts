@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   CUSTOMERS,
+  OWNERS,
+  PP1_PROJECT_ID,
   TASKS_DATA_SOURCE_ID,
   WORKSTREAMS_DATA_SOURCE_ID,
 } from '@/lib/constants';
 import { notion, taskFromPage, workstreamFromPage } from '@/lib/notion';
-import type { Customer } from '@/lib/types';
+import type { CreateTaskBody, Customer, Owner } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +62,65 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('[GET /api/tasks]', err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const body = (await req.json().catch(() => ({}))) as Partial<CreateTaskBody>;
+  const { name, workstreamId, customer, owner, due } = body;
+
+  if (!name?.trim()) {
+    return NextResponse.json({ error: 'Missing task name' }, { status: 400 });
+  }
+  if (!workstreamId) {
+    return NextResponse.json({ error: 'Missing workstreamId' }, { status: 400 });
+  }
+  if (!customer || !CUSTOMERS.includes(customer as Customer)) {
+    return NextResponse.json(
+      { error: `Missing or invalid customer. Expected one of: ${CUSTOMERS.join(', ')}` },
+      { status: 400 },
+    );
+  }
+  if (owner && !OWNERS.includes(owner as Owner)) {
+    return NextResponse.json(
+      { error: `Invalid owner. Expected one of: ${OWNERS.join(', ')}` },
+      { status: 400 },
+    );
+  }
+
+  // Build the Notion property bag. `properties` is loosely typed because
+  // each property has a different shape; the SDK's union types make this
+  // unwieldy and runtime shape is what matters.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const properties: Record<string, any> = {
+    'Task name': { title: [{ text: { content: name.trim() } }] },
+    Status: { status: { name: 'Not Started' } },
+    Workstream: { relation: [{ id: workstreamId }] },
+  };
+  if (owner) {
+    properties.Owner = { multi_select: [{ name: owner }] };
+  }
+  if (due) {
+    properties.Due = { date: { start: due } };
+  }
+  // PP1 tasks get tagged to the PP1 project page (spec §"Pitfalls" / §"Projects").
+  if (customer === 'PP1') {
+    properties.Project = { relation: [{ id: PP1_PROJECT_ID }] };
+  }
+
+  try {
+    const page = await notion.pages.create({
+      parent: { data_source_id: TASKS_DATA_SOURCE_ID },
+      properties,
+    });
+    if (!('properties' in page)) {
+      throw new Error('Notion returned a partial page response');
+    }
+    return NextResponse.json(taskFromPage(page as never));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[POST /api/tasks]', err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

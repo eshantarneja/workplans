@@ -156,7 +156,12 @@ export default function Home() {
               />
             ) : (
               workstreams.map((w) => (
-                <WorkstreamCard key={w.id} workstream={w} tasks={tasks} />
+                <WorkstreamCard
+                  key={w.id}
+                  workstream={w}
+                  tasks={tasks}
+                  customer={customer}
+                />
               ))
             )}
           </div>
