@@ -14,19 +14,22 @@ interface Props {
   workstream: Workstream;
   tasks: Task[];
   customer: Customer;
+  /** Position in the sorted list (for disabling the end-most move arrow). */
   index: number;
-  onReorder: (draggedId: string, targetIndex: number) => void;
+  /** Total cards, so the last card's "move later" arrow can be disabled. */
+  total: number;
+  onMove: (id: string, direction: 'earlier' | 'later') => void;
 }
 
 const DRAG_MIME = 'application/x-workplan-task-id';
-const WS_DRAG_MIME = 'application/x-workplan-workstream-id';
 
 export function WorkstreamCard({
   workstream,
   tasks,
   customer,
   index,
-  onReorder,
+  total,
+  onMove,
 }: Props) {
   const qc = useQueryClient();
   const [isDragOver, setIsDragOver] = useState(false);
@@ -87,11 +90,8 @@ export function WorkstreamCard({
   return (
     <article
       onDragOver={(e) => {
-        // React if the drag carries a task id OR a workstream id.
-        if (
-          e.dataTransfer.types.includes(DRAG_MIME) ||
-          e.dataTransfer.types.includes(WS_DRAG_MIME)
-        ) {
+        // Only react if the drag actually carries a task id.
+        if (e.dataTransfer.types.includes(DRAG_MIME)) {
           e.preventDefault();
           setIsDragOver(true);
         }
@@ -105,11 +105,6 @@ export function WorkstreamCard({
       onDrop={(e) => {
         e.preventDefault();
         setIsDragOver(false);
-        const wsId = e.dataTransfer.getData(WS_DRAG_MIME);
-        if (wsId) {
-          if (wsId !== workstream.id) onReorder(wsId, index);
-          return;
-        }
         const taskId = e.dataTransfer.getData(DRAG_MIME);
         if (!taskId) return;
         const moving = tasks.find((t) => t.id === taskId);
@@ -144,20 +139,30 @@ export function WorkstreamCard({
               {workstream.title}
             </a>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData(WS_DRAG_MIME, workstream.id);
-                  e.dataTransfer.effectAllowed = 'move';
-                }}
-                aria-label="Drag to reorder"
-                title="Drag to reorder"
-                // Sized as a ~28px hit target (not a bare glyph): a 13px handle
-                // is too easy to miss, so off-center grabs never started a drag.
-                className="flex items-center justify-center w-7 h-7 -my-1 shrink-0 rounded cursor-grab active:cursor-grabbing text-base leading-none text-[var(--text-subtle)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] select-none"
+              <button
+                type="button"
+                onClick={() => onMove(workstream.id, 'earlier')}
+                disabled={index === 0}
+                aria-label="Move earlier"
+                title="Move earlier"
+                className="flex items-center justify-center w-6 h-6 -my-0.5 shrink-0 rounded text-[var(--text-subtle)] hover:text-[var(--accent)] hover:bg-[var(--surface-2)] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--text-subtle)] disabled:cursor-default"
               >
-                ⠿
-              </span>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => onMove(workstream.id, 'later')}
+                disabled={index === total - 1}
+                aria-label="Move later"
+                title="Move later"
+                className="flex items-center justify-center w-6 h-6 -my-0.5 shrink-0 rounded text-[var(--text-subtle)] hover:text-[var(--accent)] hover:bg-[var(--surface-2)] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--text-subtle)] disabled:cursor-default"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
               <StatusPill status={workstream.status} />
               <button
                 type="button"

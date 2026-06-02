@@ -98,34 +98,25 @@ export default function Home() {
     },
   });
 
-  // Move the dragged card relative to the card at targetIndex. Dragging DOWN
-  // the list inserts AFTER the target; dragging UP inserts BEFORE it. This is
-  // direction-aware so any position is reachable, including the very end.
-  // We anchor on the target card's identity and recompute positions after
-  // removing the dragged card, so the index shift from removal can't skew it.
-  const reorderTo = (draggedId: string, targetIndex: number) => {
-    const draggedIndex = workstreams.findIndex((w) => w.id === draggedId);
-    const targetCard = workstreams[targetIndex];
-    if (draggedIndex === -1 || !targetCard || targetCard.id === draggedId) return;
-
-    const without = workstreams.filter((w) => w.id !== draggedId);
-    const pos = without.findIndex((w) => w.id === targetCard.id);
-    if (pos === -1) return;
-
-    const draggingDown = draggedIndex < targetIndex;
-    const prevOrder = draggingDown
-      ? without[pos].order // target
-      : pos > 0
-        ? without[pos - 1].order
-        : null;
-    const nextOrder = draggingDown
-      ? without[pos + 1]?.order ?? null
-      : without[pos].order; // target
-
-    reorderMutation.mutate({
-      id: draggedId,
-      order: orderBetween(prevOrder, nextOrder),
-    });
+  // Move a card one slot earlier/later in the manual order. New order value is
+  // the midpoint of the slot it's moving into (its two new neighbors), so a
+  // single move rewrites only this card's Order. Reuses orderBetween +
+  // reorderMutation; the click-based arrows replaced drag-and-drop (a 1-D order
+  // was awkward to drag across a wrapping grid).
+  const moveWorkstream = (id: string, direction: 'earlier' | 'later') => {
+    const i = workstreams.findIndex((w) => w.id === id);
+    if (i === -1) return;
+    if (direction === 'earlier') {
+      if (i === 0) return; // already first
+      const prevPrev = workstreams[i - 2]?.order ?? null;
+      const prev = workstreams[i - 1].order;
+      reorderMutation.mutate({ id, order: orderBetween(prevPrev, prev) });
+    } else {
+      if (i === workstreams.length - 1) return; // already last
+      const next = workstreams[i + 1].order;
+      const nextNext = workstreams[i + 2]?.order ?? null;
+      reorderMutation.mutate({ id, order: orderBetween(next, nextNext) });
+    }
   };
 
   const onReload = () => {
@@ -224,7 +215,8 @@ export default function Home() {
                   tasks={tasks}
                   customer={customer}
                   index={i}
-                  onReorder={reorderTo}
+                  total={workstreams.length}
+                  onMove={moveWorkstream}
                 />
               ))
             )}

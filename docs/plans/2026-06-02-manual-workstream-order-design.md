@@ -43,7 +43,18 @@ two equal order values. Equal orders are handled deterministically by the title
 tiebreaker in `sortWorkstreams`. There is no re-normalization pass, which is
 acceptable at the expected 3–8 cards/customer scale.
 
-## Drag UX & write path
+## Reorder UX & write path
+
+> **Update (post-implementation):** drag-and-drop was replaced with **← / → move
+> buttons** on each card. Dragging a 1-D order across a wrapping multi-column
+> grid proved awkward — cards picked up fine but had no clear drop target and
+> snapped back. Click-to-move is more reliable, discoverable, and accessible.
+> Each card header has "move earlier"/"move later" arrows (disabled at the
+> ends); a click sets the card's `Order` to the midpoint of the slot it moves
+> into via `orderBetween`, reusing the same optimistic mutation. The original
+> drag design is kept below for history.
+
+### (Historical) Drag UX & write path
 
 Reuse the existing native HTML5 DnD pattern (tasks already drag with MIME
 `application/x-workplan-task-id`) and the react-query optimistic-update +
