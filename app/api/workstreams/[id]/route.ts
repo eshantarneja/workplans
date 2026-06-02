@@ -15,7 +15,7 @@ export async function PATCH(
   }
 
   const body = (await req.json().catch(() => ({}))) as Partial<UpdateWorkstreamBody>;
-  const { name, customer, status, startDate, targetDate, goal } = body;
+  const { name, customer, status, startDate, targetDate, goal, order } = body;
 
   if (status && !WORKSTREAM_STATUSES.includes(status as WorkstreamStatus)) {
     return NextResponse.json(
@@ -54,6 +54,9 @@ export async function PATCH(
     const start = startDate ?? null;
     const end = targetDate ?? null;
     properties.Dates = start ? { date: { start, end } } : { date: null };
+  }
+  if (order !== undefined) {
+    properties.Order = { number: order };
   }
 
   if (Object.keys(properties).length === 0) {
