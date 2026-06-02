@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const created = [];
+    let i = 0;
     for (const name of STARTER_NAMES) {
+      i += 1;
       const page = await notion.pages.create({
         parent: { data_source_id: WORKSTREAMS_DATA_SOURCE_ID },
         properties: {
@@ -31,6 +33,7 @@ export async function POST(req: NextRequest) {
           },
           Customer: { select: { name: customer } },
           Status: { select: { name: 'Not Started' } },
+          Order: { number: i * 1000 },
         },
       });
       if ('properties' in page) {
