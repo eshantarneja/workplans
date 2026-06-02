@@ -152,7 +152,9 @@ export function WorkstreamCard({
                 }}
                 aria-label="Drag to reorder"
                 title="Drag to reorder"
-                className="cursor-grab active:cursor-grabbing text-[var(--text-subtle)] hover:text-[var(--text)] select-none px-0.5 leading-none"
+                // Sized as a ~28px hit target (not a bare glyph): a 13px handle
+                // is too easy to miss, so off-center grabs never started a drag.
+                className="flex items-center justify-center w-7 h-7 -my-1 shrink-0 rounded cursor-grab active:cursor-grabbing text-base leading-none text-[var(--text-subtle)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] select-none"
               >
                 ⠿
               </span>
