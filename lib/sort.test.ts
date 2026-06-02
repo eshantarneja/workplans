@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sortTasksByDue, sortWorkstreams } from './sort';
+import { orderBetween, sortTasksByDue, sortWorkstreams } from './sort';
 import type { Task, Workstream } from './types';
 
 function ws(partial: Partial<Workstream> & { id: string }): Workstream {
@@ -18,39 +18,51 @@ function ws(partial: Partial<Workstream> & { id: string }): Workstream {
 }
 
 describe('sortWorkstreams', () => {
-  it('orders by status: Blocked, At Risk, On Track, Not Started, Done', () => {
+  it('orders by order ascending, ignoring status', () => {
     const result = sortWorkstreams([
-      ws({ id: 'a', status: 'Done' }),
-      ws({ id: 'b', status: 'On Track' }),
-      ws({ id: 'c', status: 'Blocked' }),
-      ws({ id: 'd', status: 'Not Started' }),
-      ws({ id: 'e', status: 'At Risk' }),
-    ]);
-    expect(result.map((w) => w.id)).toEqual(['c', 'e', 'b', 'd', 'a']);
-  });
-
-  it('within the same status, sorts by target date ascending', () => {
-    const result = sortWorkstreams([
-      ws({ id: 'a', status: 'On Track', targetDate: '2026-07-01' }),
-      ws({ id: 'b', status: 'On Track', targetDate: '2026-05-15' }),
-      ws({ id: 'c', status: 'On Track', targetDate: '2026-06-15' }),
+      ws({ id: 'a', order: 3000, status: 'Blocked' }),
+      ws({ id: 'b', order: 1000, status: 'Done' }),
+      ws({ id: 'c', order: 2000, status: 'On Track' }),
     ]);
     expect(result.map((w) => w.id)).toEqual(['b', 'c', 'a']);
   });
 
-  it('null target dates sort after dated ones in the same status', () => {
+  it('puts null-order workstreams last', () => {
     const result = sortWorkstreams([
-      ws({ id: 'a', status: 'On Track', targetDate: null }),
-      ws({ id: 'b', status: 'On Track', targetDate: '2026-05-15' }),
+      ws({ id: 'a', order: null }),
+      ws({ id: 'b', order: 1000 }),
     ]);
     expect(result.map((w) => w.id)).toEqual(['b', 'a']);
   });
 
+  it('breaks ties (equal or both-null order) by title', () => {
+    const result = sortWorkstreams([
+      ws({ id: 'x', title: 'Zebra', order: null }),
+      ws({ id: 'y', title: 'Apple', order: null }),
+    ]);
+    expect(result.map((w) => w.id)).toEqual(['y', 'x']);
+  });
+
   it('does not mutate the input array', () => {
-    const input = [ws({ id: 'a', status: 'Done' }), ws({ id: 'b', status: 'Blocked' })];
+    const input = [ws({ id: 'a', order: 2000 }), ws({ id: 'b', order: 1000 })];
     const snapshot = input.map((w) => w.id);
     sortWorkstreams(input);
     expect(input.map((w) => w.id)).toEqual(snapshot);
+  });
+});
+
+describe('orderBetween', () => {
+  it('returns the midpoint of two numbers', () => {
+    expect(orderBetween(2000, 3000)).toBe(2500);
+  });
+  it('appends after a previous value when next is null', () => {
+    expect(orderBetween(3000, null)).toBe(4000);
+  });
+  it('prepends before a next value when prev is null', () => {
+    expect(orderBetween(null, 1000)).toBe(0);
+  });
+  it('returns the default gap for an empty list', () => {
+    expect(orderBetween(null, null)).toBe(1000);
   });
 });
 
