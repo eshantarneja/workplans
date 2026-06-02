@@ -55,8 +55,10 @@ rollback pattern (see the task-move mutation in `WorkstreamCard.tsx`).
 - **Dedicated drag handle** (grip icon ⠿) in the card header is the only
   draggable part of the card. Avoids fighting the clickable title (opens
   Notion), the edit button, and the draggable task rows inside the card.
-- **Drop = insert before.** Dropping card X onto card Y places X immediately
-  before Y; new `Order` = midpoint(Y's previous neighbor, Y).
+- **Drop = direction-aware insert.** Dragging a card DOWN the list inserts it
+  after the target card; dragging UP inserts it before — so any position,
+  including the very last slot, is reachable. New `Order` = midpoint of the
+  resulting neighbors.
 - **Optimistic update:** on drop, reorder the cached `['workstreams', customer]`
   list immediately, fire the PATCH, roll back on failure.
 

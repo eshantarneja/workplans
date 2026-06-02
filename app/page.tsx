@@ -80,8 +80,8 @@ export default function Home() {
         body: JSON.stringify({ order }),
       });
       if (!res.ok) {
-        const b = await res.json().catch(() => ({}));
-        throw new Error(b.error || `Reorder failed: ${res.status}`);
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Reorder failed: ${res.status}`);
       }
       return res.json();
     },
@@ -93,24 +93,35 @@ export default function Home() {
       );
       return { prev };
     },
-    onError: (_e, _v, ctx) => {
+    onError: (_err, _vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(wsKey, ctx.prev);
     },
   });
 
-  // Insert the dragged card immediately BEFORE the card currently at
-  // targetIndex in the sorted `workstreams` list. We anchor on the target
-  // card's identity (not raw index math) so it's correct whether the card is
-  // dragged up or down: removing the dragged item from the list can shift the
-  // target's index, so we re-find it after filtering.
+  // Move the dragged card relative to the card at targetIndex. Dragging DOWN
+  // the list inserts AFTER the target; dragging UP inserts BEFORE it. This is
+  // direction-aware so any position is reachable, including the very end.
+  // We anchor on the target card's identity and recompute positions after
+  // removing the dragged card, so the index shift from removal can't skew it.
   const reorderTo = (draggedId: string, targetIndex: number) => {
+    const draggedIndex = workstreams.findIndex((w) => w.id === draggedId);
     const targetCard = workstreams[targetIndex];
-    if (!targetCard || targetCard.id === draggedId) return;
+    if (draggedIndex === -1 || !targetCard || targetCard.id === draggedId) return;
+
     const without = workstreams.filter((w) => w.id !== draggedId);
     const pos = without.findIndex((w) => w.id === targetCard.id);
     if (pos === -1) return;
-    const prevOrder = pos > 0 ? without[pos - 1].order : null;
-    const nextOrder = without[pos].order; // the target card's order
+
+    const draggingDown = draggedIndex < targetIndex;
+    const prevOrder = draggingDown
+      ? without[pos].order // target
+      : pos > 0
+        ? without[pos - 1].order
+        : null;
+    const nextOrder = draggingDown
+      ? without[pos + 1]?.order ?? null
+      : without[pos].order; // target
+
     reorderMutation.mutate({
       id: draggedId,
       order: orderBetween(prevOrder, nextOrder),
