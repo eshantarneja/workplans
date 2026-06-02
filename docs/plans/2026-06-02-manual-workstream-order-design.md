@@ -37,6 +37,12 @@ neighbors (drop between 2000 and 3000 → 2500). Dropping at the end uses
 `lastOrder + 1000`. Result: **one drag = one Notion write**, no re-numbering of
 the whole list.
 
+**Known limitation:** repeatedly splitting the same gap yields ever-smaller
+fractional values and, in pathological cases, could collapse a gap or produce
+two equal order values. Equal orders are handled deterministically by the title
+tiebreaker in `sortWorkstreams`. There is no re-normalization pass, which is
+acceptable at the expected 3–8 cards/customer scale.
+
 ## Drag UX & write path
 
 Reuse the existing native HTML5 DnD pattern (tasks already drag with MIME

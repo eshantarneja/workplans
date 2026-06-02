@@ -64,6 +64,9 @@ describe('orderBetween', () => {
   it('returns the default gap for an empty list', () => {
     expect(orderBetween(null, null)).toBe(1000);
   });
+  it('returns a fractional midpoint for adjacent neighbors', () => {
+    expect(orderBetween(2000, 2001)).toBe(2000.5);
+  });
 });
 
 function task(partial: Partial<Task> & { id: string }): Task {

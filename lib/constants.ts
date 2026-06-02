@@ -35,16 +35,3 @@ export const TASKS_DATA_SOURCE_ID = '1d03a4d84b0481afa081000bb4b55b8b';
 // get tagged to this project so the user's existing PP1 view keeps working.
 // Other customers (Penta, Siegel, Whetstone) have no project page yet — leave empty.
 export const PP1_PROJECT_ID = '3323a4d84b048075bb11fa5a4b4cd3f3';
-
-// Sort order for workstream cards on the dashboard (lower = shown first).
-// Within the same status, sort by target date ascending.
-export const WORKSTREAM_STATUS_ORDER: Record<
-  (typeof WORKSTREAM_STATUSES)[number],
-  number
-> = {
-  Blocked: 0,
-  'At Risk': 1,
-  'On Track': 2,
-  'Not Started': 3,
-  Done: 4,
-};
