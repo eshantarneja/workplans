@@ -2,8 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
-import { OWNERS } from '@/lib/constants';
-import type { CreateTaskBody, Customer, Owner, Task } from '@/lib/types';
+import type { CreateTaskBody, Customer, Task } from '@/lib/types';
 
 interface Props {
   customer: Customer;
@@ -26,7 +25,6 @@ async function postTask(body: CreateTaskBody): Promise<Task> {
 export function AddTaskForm({ customer, workstreamId }: Props) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
-  const [owner, setOwner] = useState<Owner | ''>('');
   const [due, setDue] = useState('');
   const nameRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
@@ -48,7 +46,7 @@ export function AddTaskForm({ customer, workstreamId }: Props) {
         id: tempId,
         title: body.name,
         status: 'Not Started',
-        owners: body.owner ? [body.owner] : [],
+        owners: [],
         due: body.due ?? null,
         priority: null,
         notes: '',
@@ -81,7 +79,6 @@ export function AddTaskForm({ customer, workstreamId }: Props) {
   const cancel = () => {
     setOpen(false);
     setName('');
-    setOwner('');
     setDue('');
   };
 
@@ -92,7 +89,6 @@ export function AddTaskForm({ customer, workstreamId }: Props) {
       name: trimmed,
       workstreamId,
       customer,
-      owner: owner || undefined,
       due: due || undefined,
     });
     cancel();
@@ -128,28 +124,13 @@ export function AddTaskForm({ customer, workstreamId }: Props) {
         placeholder="Task name"
         className="w-full bg-[var(--surface)] border border-[var(--border)] rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]"
       />
-      <div className="flex gap-1.5">
-        <select
-          value={owner}
-          onChange={(e) => setOwner(e.target.value as Owner | '')}
-          className="flex-1 min-w-0 bg-[var(--surface)] border border-[var(--border)] rounded px-2 py-1.5 text-xs text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
-          aria-label="Owner"
-        >
-          <option value="">—</option>
-          {OWNERS.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-        <input
-          type="date"
-          value={due}
-          onChange={(e) => setDue(e.target.value)}
-          className="flex-1 min-w-0 bg-[var(--surface)] border border-[var(--border)] rounded px-2 py-1.5 text-xs text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
-          aria-label="Due date"
-        />
-      </div>
+      <input
+        type="date"
+        value={due}
+        onChange={(e) => setDue(e.target.value)}
+        className="w-full bg-[var(--surface)] border border-[var(--border)] rounded px-2 py-1.5 text-xs text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
+        aria-label="Due date"
+      />
       <div className="flex justify-end gap-1.5">
         <button
           type="button"

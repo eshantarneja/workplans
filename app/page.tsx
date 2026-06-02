@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { AgendaTextarea } from '@/components/AgendaTextarea';
+import { Agenda } from '@/components/Agenda';
 import { CustomerPicker } from '@/components/CustomerPicker';
 import { Header } from '@/components/Header';
 import { Timeline } from '@/components/Timeline';
@@ -103,8 +103,8 @@ export default function Home() {
       </div>
 
       <div className="mt-4">
-        {/* key forces remount per customer so the textarea state resets */}
-        <AgendaTextarea key={customer} customer={customer} />
+        {/* key forces remount per customer so the agenda state resets */}
+        <Agenda key={customer} customer={customer} />
       </div>
 
       {error && (
@@ -136,7 +136,7 @@ export default function Home() {
               Workstreams
             </span>
             <span className="text-[10px] text-[var(--text-subtle)]">
-              Click any workstream or task to open it in Notion
+              Click a task to edit · use ↗ to open in Notion
             </span>
           </div>
 

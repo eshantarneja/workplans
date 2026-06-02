@@ -1,5 +1,5 @@
 import { WORKSTREAM_STATUS_ORDER } from './constants';
-import type { Workstream } from './types';
+import type { Task, Workstream } from './types';
 
 /**
  * Sort workstreams by spec order: Blocked → At Risk → On Track →
@@ -20,4 +20,18 @@ export function sortWorkstreams(list: Workstream[]): Workstream[] {
     if (b.targetDate === null) return -1;
     return a.targetDate.localeCompare(b.targetDate);
   });
+}
+
+/**
+ * Sort tasks strictly by due date ascending (earliest first), regardless of
+ * status. Tasks with no due date sort last. The '9999-12-31' sentinel keeps
+ * null dates at the bottom via plain string compare (ISO dates sort
+ * lexically).
+ *
+ * Pure: returns a new array; does not mutate the input.
+ */
+export function sortTasksByDue(list: Task[]): Task[] {
+  return [...list].sort((a, b) =>
+    (a.due ?? '9999-12-31').localeCompare(b.due ?? '9999-12-31'),
+  );
 }

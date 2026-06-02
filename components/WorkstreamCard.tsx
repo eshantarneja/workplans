@@ -3,9 +3,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { daysOver, formatMonthDay, todayIso } from '@/lib/dates';
+import { sortTasksByDue } from '@/lib/sort';
 import type { Customer, Task, Workstream } from '@/lib/types';
 import { AddTaskForm } from './AddTaskForm';
+import { EditWorkstreamForm } from './EditWorkstreamForm';
 import { STATUS_FG, StatusPill } from './StatusPill';
+import { TaskEditForm } from './TaskEditForm';
 
 interface Props {
   workstream: Workstream;
@@ -18,6 +21,7 @@ const DRAG_MIME = 'application/x-workplan-task-id';
 export function WorkstreamCard({ workstream, tasks, customer }: Props) {
   const qc = useQueryClient();
   const [isDragOver, setIsDragOver] = useState(false);
+  const [editing, setEditing] = useState(false);
   const tasksKey = ['tasks', customer] as const;
 
   const moveMutation = useMutation<
@@ -54,15 +58,8 @@ export function WorkstreamCard({ workstream, tasks, customer }: Props) {
   });
 
   const wsTasks = tasks.filter((t) => t.workstreamId === workstream.id);
-  const blockers = wsTasks.filter((t) => t.status === 'Blocked');
-  const regular = wsTasks.filter((t) => t.status !== 'Blocked');
-
-  // Open tasks first (sorted by due asc), then Done at the bottom.
-  const open = regular
-    .filter((t) => t.status !== 'Done')
-    .sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999'));
-  const done = regular.filter((t) => t.status === 'Done');
-  const orderedTasks = [...open, ...done];
+  // Strictly by due date, earliest first; no-due-date tasks sort last.
+  const orderedTasks = sortTasksByDue(wsTasks);
 
   const overdue =
     workstream.status !== 'Done'
@@ -70,7 +67,7 @@ export function WorkstreamCard({ workstream, tasks, customer }: Props) {
       : null;
 
   const totalCount = orderedTasks.length;
-  const doneCount = done.length;
+  const doneCount = orderedTasks.filter((t) => t.status === 'Done').length;
   const countLabel =
     totalCount === 0
       ? '0'
@@ -110,58 +107,83 @@ export function WorkstreamCard({ workstream, tasks, customer }: Props) {
       }`}
       style={{ borderTopWidth: 4, borderTopColor: STATUS_FG[workstream.status] }}
     >
-      <div className="px-5 pt-4 pb-2 flex items-start justify-between gap-3">
-        <a
-          href={workstream.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[15px] font-semibold text-[var(--text)] hover:text-[var(--accent)] leading-tight"
-        >
-          {workstream.title}
-        </a>
-        <StatusPill status={workstream.status} />
-      </div>
-
-      <div className="px-5 text-xs text-[var(--text-muted)] flex items-baseline gap-3 flex-wrap">
-        {workstream.startDate && (
-          <span>
-            Start <span className="text-[var(--text)] font-medium">{formatMonthDay(workstream.startDate)}</span>
-          </span>
-        )}
-        {workstream.targetDate && (
-          <span>
-            Target{' '}
-            <span className="text-[var(--text)] font-medium">{formatMonthDay(workstream.targetDate)}</span>
-          </span>
-        )}
-        {overdue !== null && (
-          <span className="text-[var(--blocked-fg)] font-medium">
-            ({overdue}d over)
-          </span>
-        )}
-      </div>
-
-      {workstream.headline && (
-        <p className="px-5 mt-1 text-xs text-[var(--text-muted)] italic">{workstream.headline}</p>
-      )}
-
-      {workstream.goal && (
-        <div className="mx-5 mt-3 bg-[var(--surface-2)] rounded-lg px-3 py-2 border-l-[3px] border-[var(--accent)]">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-0.5">
-            Goal
-          </div>
-          <p className="text-sm text-[var(--text)] leading-snug">{workstream.goal}</p>
+      {editing ? (
+        <div className="p-3">
+          <EditWorkstreamForm
+            workstream={workstream}
+            customer={customer}
+            onClose={() => setEditing(false)}
+          />
         </div>
-      )}
-
-      {blockers.length > 0 && (
-        <Section title="Blockers" count={blockers.length} className="mt-4">
-          <div className="space-y-2">
-            {blockers.map((t) => (
-              <BlockerCallout key={t.id} task={t} />
-            ))}
+      ) : (
+        <>
+          <div className="px-5 pt-4 pb-2 flex items-start justify-between gap-3">
+            <a
+              href={workstream.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[15px] font-semibold text-[var(--text)] hover:text-[var(--accent)] leading-tight"
+            >
+              {workstream.title}
+            </a>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <StatusPill status={workstream.status} />
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                aria-label="Edit workstream"
+                title="Edit workstream"
+                className="text-[var(--text-subtle)] hover:text-[var(--accent)] p-0.5 -mr-1"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
-        </Section>
+
+          <div className="px-5 text-xs text-[var(--text-muted)] flex items-baseline gap-3 flex-wrap">
+            {workstream.startDate && (
+              <span>
+                Start <span className="text-[var(--text)] font-medium">{formatMonthDay(workstream.startDate)}</span>
+              </span>
+            )}
+            {workstream.targetDate && (
+              <span>
+                Target{' '}
+                <span className="text-[var(--text)] font-medium">{formatMonthDay(workstream.targetDate)}</span>
+              </span>
+            )}
+            {overdue !== null && (
+              <span className="text-[var(--blocked-fg)] font-medium">
+                ({overdue}d over)
+              </span>
+            )}
+          </div>
+
+          {workstream.headline && (
+            <p className="px-5 mt-1 text-xs text-[var(--text-muted)] italic">{workstream.headline}</p>
+          )}
+
+          {workstream.goal && (
+            <div className="mx-5 mt-3 bg-[var(--surface-2)] rounded-lg px-3 py-2 border-l-[3px] border-[var(--accent)]">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-0.5">
+                Goal
+              </div>
+              <p className="text-sm text-[var(--text)] leading-snug">{workstream.goal}</p>
+            </div>
+          )}
+        </>
       )}
 
       <Section
@@ -176,7 +198,7 @@ export function WorkstreamCard({ workstream, tasks, customer }: Props) {
         ) : (
           <ul className="space-y-1.5">
             {orderedTasks.map((t) => (
-              <TaskRow key={t.id} task={t} />
+              <TaskRow key={t.id} task={t} customer={customer} />
             ))}
           </ul>
         )}
@@ -215,10 +237,24 @@ function Section({
   );
 }
 
-function TaskRow({ task }: { task: Task }) {
+function TaskRow({ task, customer }: { task: Task; customer: Customer }) {
+  const [editing, setEditing] = useState(false);
   const isDone = task.status === 'Done';
+  const isBlocked = task.status === 'Blocked';
   const isOverdue =
     !isDone && task.due ? daysOver(task.due, todayIso()) !== null : false;
+
+  if (editing) {
+    return (
+      <li>
+        <TaskEditForm
+          task={task}
+          customer={customer}
+          onClose={() => setEditing(false)}
+        />
+      </li>
+    );
+  }
 
   return (
     <li
@@ -229,33 +265,44 @@ function TaskRow({ task }: { task: Task }) {
       }}
       className="flex items-center gap-2 text-xs group cursor-grab active:cursor-grabbing"
     >
-      <span
-        className={`inline-block w-2 h-2 rounded-full shrink-0 ${
-          isDone
-            ? 'bg-[var(--text-subtle)]'
-            : 'border border-[var(--text-subtle)]'
-        }`}
-        aria-hidden
-      />
-      <a
-        href={task.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        // Don't start a drag when the user clicks the link; the row's
-        // onDragStart still fires for the rest of the row.
+      {isBlocked ? (
+        // Blocked tasks keep a marker so they still stand out inline.
+        <span
+          className="w-3.5 h-3.5 rounded-full bg-[var(--blocked-fg)] text-white text-[9px] font-bold flex items-center justify-center shrink-0"
+          aria-label="Blocked"
+          title="Blocked"
+        >
+          !
+        </span>
+      ) : (
+        <span
+          className={`inline-block w-2 h-2 rounded-full shrink-0 ${
+            isDone
+              ? 'bg-[var(--text-subtle)]'
+              : 'border border-[var(--text-subtle)]'
+          }`}
+          aria-hidden
+        />
+      )}
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        // Clicking edits; the row still drags. Stop the drag from starting on
+        // a deliberate click so it registers as a click, not a drag.
         onDragStart={(e) => e.stopPropagation()}
         draggable={false}
-        className={`flex-1 truncate hover:text-[var(--accent)] ${
+        title="Click to edit"
+        className={`flex-1 truncate text-left hover:text-[var(--accent)] ${
           isDone
             ? 'line-through text-[var(--text-subtle)]'
-            : 'text-[var(--text)]'
+            : isBlocked
+              ? 'text-[var(--blocked-fg)] font-medium'
+              : 'text-[var(--text)]'
         }`}
       >
         {task.title || '(untitled)'}
-      </a>
-      {task.owners[0] && (
-        <span className="text-[var(--text-muted)] shrink-0">{task.owners[0]}</span>
-      )}
+      </button>
+      {/* Owner intentionally hidden from the UI for now (data is preserved). */}
       {task.due && (
         <span
           className={`shrink-0 tabular-nums ${
@@ -269,36 +316,20 @@ function TaskRow({ task }: { task: Task }) {
           {formatMonthDay(task.due)}
         </span>
       )}
+      <a
+        href={task.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onDragStart={(e) => e.stopPropagation()}
+        draggable={false}
+        aria-label="Open in Notion"
+        title="Open in Notion"
+        className="shrink-0 text-[var(--text-subtle)] hover:text-[var(--accent)] opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14 5h5v5M19 5l-7 7M12 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-6" />
+        </svg>
+      </a>
     </li>
-  );
-}
-
-function BlockerCallout({ task }: { task: Task }) {
-  return (
-    <a
-      href={task.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block bg-[var(--blocked-bg)] border-l-[3px] border-[var(--blocked-fg)] rounded px-3 py-2 hover:bg-red-100"
-    >
-      <div className="flex items-center gap-2">
-        <span
-          className="w-4 h-4 rounded-full bg-[var(--blocked-fg)] text-white text-[10px] font-bold flex items-center justify-center shrink-0"
-          aria-hidden
-        >
-          !
-        </span>
-        <span className="text-sm font-medium text-[var(--text)]">
-          {task.title || '(untitled)'}
-        </span>
-      </div>
-      {(task.owners.length > 0 || task.due) && (
-        <div className="text-[11px] text-[var(--text-muted)] mt-0.5 pl-6">
-          {task.owners.length > 0 && <>Owner: {task.owners.join(', ')}</>}
-          {task.owners.length > 0 && task.due && ' · '}
-          {task.due && <>Date: {formatMonthDay(task.due)}</>}
-        </div>
-      )}
-    </a>
   );
 }

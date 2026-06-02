@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TASK_STATUSES } from '@/lib/constants';
+import { OWNERS, TASK_STATUSES } from '@/lib/constants';
 import { notion, taskFromPage } from '@/lib/notion';
-import type { TaskStatus, UpdateTaskBody } from '@/lib/types';
+import type { Owner, TaskStatus, UpdateTaskBody } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,11 +15,17 @@ export async function PATCH(
   }
 
   const body = (await req.json().catch(() => ({}))) as Partial<UpdateTaskBody>;
-  const { workstreamId, status, name } = body;
+  const { workstreamId, status, name, owner, due } = body;
 
   if (status && !TASK_STATUSES.includes(status as TaskStatus)) {
     return NextResponse.json(
       { error: `Invalid status. Expected one of: ${TASK_STATUSES.join(', ')}` },
+      { status: 400 },
+    );
+  }
+  if (owner && !OWNERS.includes(owner as Owner)) {
+    return NextResponse.json(
+      { error: `Invalid owner. Expected one of: ${OWNERS.join(', ')}` },
       { status: 400 },
     );
   }
@@ -35,10 +41,17 @@ export async function PATCH(
   if (name) {
     properties['Task name'] = { title: [{ text: { content: name } }] };
   }
+  // owner/due distinguish "absent" (skip) from null/'' (clear the field).
+  if (owner !== undefined) {
+    properties.Owner = { multi_select: owner ? [{ name: owner }] : [] };
+  }
+  if (due !== undefined) {
+    properties.Due = { date: due ? { start: due } : null };
+  }
 
   if (Object.keys(properties).length === 0) {
     return NextResponse.json(
-      { error: 'Nothing to update — provide at least one of workstreamId, status, name' },
+      { error: 'Nothing to update — provide at least one field' },
       { status: 400 },
     );
   }

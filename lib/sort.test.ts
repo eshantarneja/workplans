@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { sortWorkstreams } from './sort';
-import type { Workstream } from './types';
+import { sortTasksByDue, sortWorkstreams } from './sort';
+import type { Task, Workstream } from './types';
 
 function ws(partial: Partial<Workstream> & { id: string }): Workstream {
   return {
@@ -50,5 +50,55 @@ describe('sortWorkstreams', () => {
     const snapshot = input.map((w) => w.id);
     sortWorkstreams(input);
     expect(input.map((w) => w.id)).toEqual(snapshot);
+  });
+});
+
+function task(partial: Partial<Task> & { id: string }): Task {
+  return {
+    title: partial.id,
+    status: 'Not Started',
+    owners: [],
+    due: null,
+    priority: null,
+    notes: '',
+    workstreamId: null,
+    projectId: null,
+    url: '',
+    ...partial,
+  };
+}
+
+describe('sortTasksByDue', () => {
+  it('sorts by due date ascending, earliest first', () => {
+    const result = sortTasksByDue([
+      task({ id: 'a', due: '2026-07-01' }),
+      task({ id: 'b', due: '2026-05-15' }),
+      task({ id: 'c', due: '2026-06-15' }),
+    ]);
+    expect(result.map((t) => t.id)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('sorts strictly by due date regardless of status', () => {
+    const result = sortTasksByDue([
+      task({ id: 'done-late', status: 'Done', due: '2026-06-01' }),
+      task({ id: 'open-early', status: 'In Progress', due: '2026-05-01' }),
+      task({ id: 'blocked-mid', status: 'Blocked', due: '2026-05-15' }),
+    ]);
+    expect(result.map((t) => t.id)).toEqual(['open-early', 'blocked-mid', 'done-late']);
+  });
+
+  it('puts tasks with no due date last', () => {
+    const result = sortTasksByDue([
+      task({ id: 'none', due: null }),
+      task({ id: 'dated', due: '2026-05-15' }),
+    ]);
+    expect(result.map((t) => t.id)).toEqual(['dated', 'none']);
+  });
+
+  it('does not mutate the input array', () => {
+    const input = [task({ id: 'a', due: '2026-07-01' }), task({ id: 'b', due: '2026-05-01' })];
+    const snapshot = input.map((t) => t.id);
+    sortTasksByDue(input);
+    expect(input.map((t) => t.id)).toEqual(snapshot);
   });
 });

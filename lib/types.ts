@@ -48,9 +48,30 @@ export interface CreateTaskBody {
   due?: string | null;
 }
 
-/** Body shape for PATCH /api/tasks/[id]. */
+/**
+ * Body shape for PATCH /api/tasks/[id]. All fields optional; only the keys
+ * present are written. `owner: null` or `due: null` clears that field.
+ */
 export interface UpdateTaskBody {
   workstreamId?: string;
   status?: TaskStatus;
   name?: string;
+  owner?: Owner | null;
+  due?: string | null;
+}
+
+/**
+ * Body shape for PATCH /api/workstreams/[id]. All fields optional; only the
+ * ones present are written. `name` is the display title WITHOUT the
+ * "{Customer} — " prefix — the route re-adds it using `customer`.
+ * `startDate`/`targetDate` map to the single Notion "Dates" property (start +
+ * end); send both together so neither half is lost.
+ */
+export interface UpdateWorkstreamBody {
+  name?: string;
+  customer?: Customer;
+  status?: WorkstreamStatus;
+  startDate?: string | null;
+  targetDate?: string | null;
+  goal?: string;
 }
