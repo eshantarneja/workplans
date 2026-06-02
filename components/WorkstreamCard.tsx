@@ -14,11 +14,20 @@ interface Props {
   workstream: Workstream;
   tasks: Task[];
   customer: Customer;
+  index: number;
+  onReorder: (draggedId: string, targetIndex: number) => void;
 }
 
 const DRAG_MIME = 'application/x-workplan-task-id';
+const WS_DRAG_MIME = 'application/x-workplan-workstream-id';
 
-export function WorkstreamCard({ workstream, tasks, customer }: Props) {
+export function WorkstreamCard({
+  workstream,
+  tasks,
+  customer,
+  index,
+  onReorder,
+}: Props) {
   const qc = useQueryClient();
   const [isDragOver, setIsDragOver] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -78,8 +87,11 @@ export function WorkstreamCard({ workstream, tasks, customer }: Props) {
   return (
     <article
       onDragOver={(e) => {
-        // Only react if the drag actually carries a task id.
-        if (e.dataTransfer.types.includes(DRAG_MIME)) {
+        // React if the drag carries a task id OR a workstream id.
+        if (
+          e.dataTransfer.types.includes(DRAG_MIME) ||
+          e.dataTransfer.types.includes(WS_DRAG_MIME)
+        ) {
           e.preventDefault();
           setIsDragOver(true);
         }
@@ -93,6 +105,11 @@ export function WorkstreamCard({ workstream, tasks, customer }: Props) {
       onDrop={(e) => {
         e.preventDefault();
         setIsDragOver(false);
+        const wsId = e.dataTransfer.getData(WS_DRAG_MIME);
+        if (wsId) {
+          if (wsId !== workstream.id) onReorder(wsId, index);
+          return;
+        }
         const taskId = e.dataTransfer.getData(DRAG_MIME);
         if (!taskId) return;
         const moving = tasks.find((t) => t.id === taskId);
@@ -127,6 +144,18 @@ export function WorkstreamCard({ workstream, tasks, customer }: Props) {
               {workstream.title}
             </a>
             <div className="flex items-center gap-1.5 shrink-0">
+              <span
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(WS_DRAG_MIME, workstream.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                aria-label="Drag to reorder"
+                title="Drag to reorder"
+                className="cursor-grab active:cursor-grabbing text-[var(--text-subtle)] hover:text-[var(--text)] select-none px-0.5 leading-none"
+              >
+                ⠿
+              </span>
               <StatusPill status={workstream.status} />
               <button
                 type="button"

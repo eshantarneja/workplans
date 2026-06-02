@@ -9,8 +9,8 @@ import { Timeline } from '@/components/Timeline';
 import { WorkstreamCard } from '@/components/WorkstreamCard';
 import { CUSTOMERS } from '@/lib/constants';
 import { fetchTasks, fetchWorkstreams } from '@/lib/api';
-import { sortWorkstreams } from '@/lib/sort';
-import type { Customer } from '@/lib/types';
+import { sortWorkstreams, orderBetween } from '@/lib/sort';
+import type { Customer, Workstream } from '@/lib/types';
 
 /** Decide the initial customer: URL query > localStorage > 'PP1'. */
 function initialCustomer(): Customer {
@@ -65,6 +65,57 @@ export default function Home() {
 
   const workstreams = sortWorkstreams(wsQuery.data ?? []);
   const tasks = tasksQuery.data ?? [];
+
+  const wsKey = ['workstreams', customer] as const;
+  const reorderMutation = useMutation<
+    Workstream,
+    Error,
+    { id: string; order: number },
+    { prev: Workstream[] | undefined }
+  >({
+    mutationFn: async ({ id, order }) => {
+      const res = await fetch(`/api/workstreams/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order }),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error || `Reorder failed: ${res.status}`);
+      }
+      return res.json();
+    },
+    onMutate: async ({ id, order }) => {
+      await qc.cancelQueries({ queryKey: wsKey });
+      const prev = qc.getQueryData<Workstream[]>(wsKey);
+      qc.setQueryData<Workstream[]>(wsKey, (curr) =>
+        (curr ?? []).map((w) => (w.id === id ? { ...w, order } : w)),
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(wsKey, ctx.prev);
+    },
+  });
+
+  // Insert the dragged card immediately BEFORE the card currently at
+  // targetIndex in the sorted `workstreams` list. We anchor on the target
+  // card's identity (not raw index math) so it's correct whether the card is
+  // dragged up or down: removing the dragged item from the list can shift the
+  // target's index, so we re-find it after filtering.
+  const reorderTo = (draggedId: string, targetIndex: number) => {
+    const targetCard = workstreams[targetIndex];
+    if (!targetCard || targetCard.id === draggedId) return;
+    const without = workstreams.filter((w) => w.id !== draggedId);
+    const pos = without.findIndex((w) => w.id === targetCard.id);
+    if (pos === -1) return;
+    const prevOrder = pos > 0 ? without[pos - 1].order : null;
+    const nextOrder = without[pos].order; // the target card's order
+    reorderMutation.mutate({
+      id: draggedId,
+      order: orderBetween(prevOrder, nextOrder),
+    });
+  };
 
   const onReload = () => {
     qc.invalidateQueries({ queryKey: ['workstreams', customer] });
@@ -155,12 +206,14 @@ export default function Home() {
                 }}
               />
             ) : (
-              workstreams.map((w) => (
+              workstreams.map((w, i) => (
                 <WorkstreamCard
                   key={w.id}
                   workstream={w}
                   tasks={tasks}
                   customer={customer}
+                  index={i}
+                  onReorder={reorderTo}
                 />
               ))
             )}
