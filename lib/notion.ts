@@ -59,6 +59,7 @@ type AnyProperty = {
   multi_select?: { name: string }[];
   date?: { start: string | null; end?: string | null } | null;
   relation?: { id: string }[];
+  number?: number | null;
 };
 
 function titleText(prop: AnyProperty | undefined): string {
@@ -83,6 +84,7 @@ export function workstreamFromPage(page: AnyPage): Workstream {
     goal: richText(props.Goal),
     headline: richText(props.Headline),
     url: page.url,
+    order: props.Order?.number ?? null,
   };
 }
 

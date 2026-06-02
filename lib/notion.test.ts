@@ -93,6 +93,10 @@ const fakeWorkstreamPage: any = {
       type: 'rich_text',
       rich_text: [],
     },
+    Order: {
+      type: 'number',
+      number: 2000,
+    },
   },
 };
 
@@ -109,6 +113,7 @@ describe('workstreamFromPage', () => {
       goal: 'Live two-way sync.',
       headline: '',
       url: 'https://www.notion.so/a1b2c3d411112222333344445555666',
+      order: 2000,
     });
   });
 
@@ -118,6 +123,18 @@ describe('workstreamFromPage', () => {
     const ws = workstreamFromPage(page as never);
     expect(ws.startDate).toBeNull();
     expect(ws.targetDate).toBeNull();
+  });
+
+  it('maps the Order number property to order', () => {
+    const ws = workstreamFromPage(fakeWorkstreamPage as never);
+    expect(ws.order).toBe(2000);
+  });
+
+  it('maps a missing Order property to null', () => {
+    const page = structuredClone(fakeWorkstreamPage);
+    delete page.properties.Order;
+    const ws = workstreamFromPage(page as never);
+    expect(ws.order).toBeNull();
   });
 });
 
