@@ -20,6 +20,12 @@ export interface Workstream {
   headline: string;
   /** Direct Notion URL (https://www.notion.so/<id>). */
   url: string;
+  /**
+   * Manual sort key (Notion "Order" number property). Lower = earlier.
+   * null when not yet set (sorts last, by title). Values are spaced ~1000
+   * apart so a reorder only rewrites the moved row (see lib/sort orderBetween).
+   */
+  order: number | null;
 }
 
 export interface Task {
@@ -74,4 +80,6 @@ export interface UpdateWorkstreamBody {
   startDate?: string | null;
   targetDate?: string | null;
   goal?: string;
+  /** New manual sort key. */
+  order?: number;
 }

@@ -12,6 +12,7 @@ function ws(partial: Partial<Workstream> & { id: string }): Workstream {
     goal: '',
     headline: '',
     url: '',
+    order: null,
     ...partial,
   };
 }
