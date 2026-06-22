@@ -10,9 +10,13 @@ async function getJson<T>(url: string): Promise<T> {
 }
 
 export function fetchWorkstreams(customer: Customer) {
-  return getJson<Workstream[]>(`/api/workstreams?customer=${customer}`);
+  return getJson<Workstream[]>(
+    `/api/workstreams?customer=${encodeURIComponent(customer)}`,
+  );
 }
 
 export function fetchTasks(customer: Customer) {
-  return getJson<Task[]>(`/api/tasks?customer=${customer}`);
+  return getJson<Task[]>(
+    `/api/tasks?customer=${encodeURIComponent(customer)}`,
+  );
 }

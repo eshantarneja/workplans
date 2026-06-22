@@ -1,6 +1,6 @@
 // Hardcoded so the customer dropdown renders instantly without waiting on Notion.
 // See spec pitfall #7.
-export const CUSTOMERS = ['PP1', 'Penta', 'Siegel', 'Whetstone'] as const;
+export const CUSTOMERS = ['PP1', 'Penta', 'Siegel', 'Whetstone', 'M&U'] as const;
 
 export const OWNERS = ['Bill', 'Eshan', 'Ash', 'Pepe', 'bn'] as const;
 
