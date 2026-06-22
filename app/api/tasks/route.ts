@@ -37,7 +37,9 @@ export async function GET(req: NextRequest) {
 
     // Step 2: query tasks whose Workstream relation contains any of those ids.
     // Notion's `contains` filter takes one id; OR them together. Also
-    // exclude Archived tasks server-side.
+    // exclude Archived tasks AND subtasks (tasks with Parent-task set) —
+    // children are already represented inside their parent in Notion and
+    // shouldn't appear as peers in the workstream list.
     const tasksRes = await notion.dataSources.query({
       data_source_id: TASKS_DATA_SOURCE_ID,
       filter: {
@@ -49,6 +51,7 @@ export async function GET(req: NextRequest) {
             })),
           },
           { property: 'Status', status: { does_not_equal: 'Archived' } },
+          { property: 'Parent-task', relation: { is_empty: true } },
         ],
       },
       page_size: 200,
