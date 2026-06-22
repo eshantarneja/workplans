@@ -207,10 +207,6 @@ export function WorkstreamCard({
             )}
           </div>
 
-          {workstream.headline && (
-            <p className="px-5 mt-1 text-xs text-[var(--text-muted)] italic">{workstream.headline}</p>
-          )}
-
           {workstream.goal && (
             <div className="mx-5 mt-3 bg-[var(--surface-2)] rounded-lg px-3 py-2 border-l-[3px] border-[var(--accent)]">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-0.5">
